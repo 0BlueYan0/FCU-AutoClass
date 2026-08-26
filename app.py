@@ -22,6 +22,10 @@ class RegistrationPhase(Exception):
     which means realtime add/drop is not open yet."""
 
 
+class SeatQueryNoResponse(Exception):
+    """Raised when clicking the seat-query button pops no alert."""
+
+
 def driver_send_keys(locator, key):
     """Send keys to element.
 
@@ -89,7 +93,10 @@ def auto_class(class_ids):
             # query remain position
             driver_click((By.XPATH,
                           "//*[@id='ctl00_MainContent_TabContainer1_tabSelected_gvToAdd']/tbody/tr[2]/td[8]/input"))
-            time.sleep(0.5)
+            try:
+                WebDriverWait(driver, 10).until(ec.alert_is_present())
+            except TimeoutException:
+                raise SeatQueryNoResponse(class_id) from None
             alert = driver.switch_to.alert
             if '登記人數' in alert.text:
                 raise RegistrationPhase(alert.text)
@@ -143,6 +150,7 @@ def main():
         handlers=[logging.StreamHandler(),
                   logging.FileHandler(log_path, encoding='utf-8')])
     config = utils.read_config()
+    no_alert_times = 0
     while True:
         try:
             start()
@@ -155,7 +163,24 @@ def main():
                           "程式停止執行, 請於加退選(即時選課)期間再使用!", error)
             quit_driver()
             sys.exit(2)
+        except SeatQueryNoResponse as error:
+            no_alert_times += 1
+            if no_alert_times >= 3:
+                logging.error("連續%s次查詢課程名額都沒有跳出名額視窗, "
+                              "可能目前為「登記」階段或選課系統頁面已改版, 程式停止執行!",
+                              no_alert_times)
+                quit_driver()
+                sys.exit(2)
+            logging.warning("查詢課程 %s 的名額時沒有跳出名額視窗 (第%s次), "
+                            "5秒後自動重新啟動... (按 Ctrl+C 可離開)", error, no_alert_times)
+            quit_driver()
+            try:
+                time.sleep(5)
+            except KeyboardInterrupt:
+                sys.exit(130)
+            continue
         except Exception:
+            no_alert_times = 0
             logging.exception("程式發生錯誤, 5秒後自動重新啟動... (按 Ctrl+C 可離開)")
             quit_driver()
             try:
