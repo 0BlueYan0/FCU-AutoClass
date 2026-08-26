@@ -44,7 +44,7 @@ macOS 不提供打包好的執行檔，請從原始碼執行，Apple Silicon 與
 
 1. 下載程式碼，建議使用 `git clone`：
    ```
-   git clone https://github.com/HappyGroupHub/FCU-AutoClass.git
+   git clone https://github.com/0BlueYan0/FCU-AutoClass.git
    ```
    或是到 GitHub 頁面點選 `Code > Download ZIP` 下載原始碼
 2. 在終端機中建立虛擬環境並安裝套件：
