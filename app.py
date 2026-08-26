@@ -17,6 +17,11 @@ config = None
 driver = None
 
 
+class RegistrationPhase(Exception):
+    """Raised when the course system is in the registration phase,
+    which means realtime add/drop is not open yet."""
+
+
 def driver_send_keys(locator, key):
     """Send keys to element.
 
@@ -86,6 +91,8 @@ def auto_class(class_ids):
                           "//*[@id='ctl00_MainContent_TabContainer1_tabSelected_gvToAdd']/tbody/tr[2]/td[8]/input"))
             time.sleep(0.5)
             alert = driver.switch_to.alert
+            if '登記人數' in alert.text:
+                raise RegistrationPhase(alert.text)
             remain_pos = int(alert.text.strip('剩餘名額/開放名額：').split(" /")[0])
             logging.info("課程" + class_id + ": " + alert.text)
             alert.accept()
@@ -143,6 +150,11 @@ def main():
             logging.info("使用者中斷程式, 正在關閉...")
             quit_driver()
             sys.exit(130)
+        except RegistrationPhase as error:
+            logging.error("目前選課系統為「登記」階段 (%s), 尚未開放即時加選, "
+                          "程式停止執行, 請於加退選(即時選課)期間再使用!", error)
+            quit_driver()
+            sys.exit(2)
         except Exception:
             logging.exception("程式發生錯誤, 5秒後自動重新啟動... (按 Ctrl+C 可離開)")
             quit_driver()
