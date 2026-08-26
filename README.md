@@ -30,6 +30,40 @@
 3. 打開 `config.yml` 並完成填寫裡面的資料 (詳細說明請看下面介紹)
 4. 開啟 `run.bat` 後就完成了!
 
+## 在 macOS 上使用
+
+macOS 不提供打包好的執行檔，請從原始碼執行，Apple Silicon 與 Intel 皆支援。
+
+### 前置需求
+
+* [Google Chrome](https://www.google.com/chrome/)
+* Python 3.11 (從 [python.org](https://www.python.org/downloads/) 下載安裝檔，或使用 `brew install python@3.11`)
+* macOS 13 (Ventura) 或以上
+
+### 安裝步驟
+
+1. 下載程式碼，建議使用 `git clone`：
+   ```
+   git clone https://github.com/HappyGroupHub/FCU-AutoClass.git
+   ```
+   或是到 GitHub 頁面點選 `Code > Download ZIP` 下載原始碼
+2. 在終端機中建立虛擬環境並安裝套件：
+   ```
+   cd FCU-AutoClass
+   python3.11 -m venv .venv
+   .venv/bin/pip install -r requirements.txt
+   ```
+3. 對 `run.command` 點兩下執行，第一次執行會自動產生 `config.yml`
+4. 打開 `config.yml` 並完成填寫裡面的資料 (詳細說明請看下面介紹)
+5. 再次開啟 `run.command` 後就完成了! (也可以直接在終端機執行 `.venv/bin/python app.py`)
+
+### macOS 安全性提示
+
+* 使用 `git clone` 取得的檔案可以直接執行；但如果是**從瀏覽器下載的 ZIP**，第一次打開 `run.command`
+  會被系統阻擋。解決方式：對 `run.command` 按右鍵選「打開」，或在終端機執行
+  `xattr -d com.apple.quarantine run.command`。萬用替代方案：直接在終端機輸入 `bash run.command`
+* 如果出現「沒有權限」，請在終端機執行 `chmod +x run.command`
+
 ## 關於 config.yml
 
 ```yaml

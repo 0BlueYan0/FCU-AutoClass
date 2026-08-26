@@ -5,6 +5,10 @@ config.yml
 .idea
 __pycache__
 venv
+.venv
+
+# Runtime output
+logs
 
 # PyInstaller
 *.spec

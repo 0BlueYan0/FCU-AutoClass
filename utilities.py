@@ -1,4 +1,5 @@
 """This python will handle some extra functions."""
+import logging
 import sys
 from os.path import exists
 
@@ -42,7 +43,8 @@ def read_config():
     :rtype: dict
     """
     if not exists('./config.yml'):
-        print("Config file not found, create one by default.\nPlease finish filling config.yml")
+        logging.warning(
+            "Config file not found, create one by default.\nPlease finish filling config.yml")
         with open('config.yml', 'w', encoding="utf8"):
             config_file_generator()
 
@@ -58,7 +60,7 @@ def read_config():
             }
             return config
     except (KeyError, TypeError):
-        print(
+        logging.error(
             "An error occurred while reading config.yml, please check if the file is corrected filled.\n"
             "If the problem can't be solved, consider delete config.yml and restart the program.\n")
         sys.exit()

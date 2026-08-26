@@ -1,8 +1,8 @@
 """This python file will do the AutoClass job."""
+import logging
 import os
 import sys
 import time
-from os.path import exists
 
 from selenium import webdriver
 from selenium.common import TimeoutException
@@ -13,13 +13,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 import utilities as utils
 
-config = utils.read_config()
-
-options = webdriver.ChromeOptions()
-if config.get("headless"):
-    options.add_argument('--headless')
-driver = webdriver.Chrome(options=options)
-driver.maximize_window()
+config = None
+driver = None
 
 
 def driver_send_keys(locator, key):
@@ -69,10 +64,9 @@ def login():
     try:
         WebDriverWait(driver, 1).until(ec.presence_of_element_located((By.ID, "ctl00_btnLogout")))
     except TimeoutException:
-        print("Login Failed, relog now.")
+        logging.warning("Login Failed, relog now.")
         login()
-    print('-------------------------------------')
-    print("Login Success. Start auto classing...")
+    logging.info("Login Success. Start auto classing...")
     auto_class(config.get("class_ids"))
 
 
@@ -93,7 +87,7 @@ def auto_class(class_ids):
             time.sleep(0.5)
             alert = driver.switch_to.alert
             remain_pos = int(alert.text.strip('剩餘名額/開放名額：').split(" /")[0])
-            print("課程" + class_id + ": " + alert.text)
+            logging.info("課程" + class_id + ": " + alert.text)
             alert.accept()
 
             if not remain_pos == 0:
@@ -101,18 +95,66 @@ def auto_class(class_ids):
                               "//*[@id='ctl00_MainContent_TabContainer1_tabSelected_gvToAdd']/tbody/tr[2]/td[1]/input"))
                 if driver_get_text((By.XPATH,
                                     "//*[@id='ctl00_MainContent_TabContainer1_tabSelected_lblMsgBlock']/span")) == "加選成功":
-                    print("成功加選課程：" + class_id)
+                    logging.info("成功加選課程：" + class_id)
                     class_ids.remove(class_id)
                 else:
-                    print(
+                    logging.warning(
                         "課程" + class_id + ": 加選失敗, 請確認是否已加選或衝堂/超修, 也可能被其他機器人搶走了..")
             else:
                 pass
 
 
-if __name__ == "__main__":
-    if not exists('./logs'):
-        os.makedirs('./logs')
+def start():
+    """Run one attempt: launch the browser, login and start auto classing."""
+    global driver
+    options = webdriver.ChromeOptions()
+    if config.get("headless"):
+        options.add_argument('--headless')
+    driver = webdriver.Chrome(options=options)
+    driver.maximize_window()
     login()
-    driver.quit()
-    sys.exit("All classes joined.")
+
+
+def quit_driver():
+    """Close the browser, ignoring errors if it is already gone."""
+    global driver
+    if driver:
+        try:
+            driver.quit()
+        except Exception:
+            pass
+        driver = None
+
+
+def main():
+    global config
+    os.makedirs('./logs', exist_ok=True)
+    log_path = time.strftime('./logs/logs-%Y%m%d-%H%M%S.txt')
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        handlers=[logging.StreamHandler(),
+                  logging.FileHandler(log_path, encoding='utf-8')])
+    config = utils.read_config()
+    while True:
+        try:
+            start()
+        except KeyboardInterrupt:
+            logging.info("使用者中斷程式, 正在關閉...")
+            quit_driver()
+            sys.exit(130)
+        except Exception:
+            logging.exception("程式發生錯誤, 5秒後自動重新啟動... (按 Ctrl+C 可離開)")
+            quit_driver()
+            try:
+                time.sleep(5)
+            except KeyboardInterrupt:
+                sys.exit(130)
+            continue
+        quit_driver()
+        logging.info("All classes joined.")
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
