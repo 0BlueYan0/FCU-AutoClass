@@ -85,8 +85,8 @@ def auto_class(class_ids):
     :param class_ids: List of class ids to join.
     """
     while class_ids:
-        driver_click((By.ID, "ctl00_MainContent_TabContainer1_tabSelected_Label3"))
         for class_id in class_ids[:]:  # create a copy of class_ids for iteration
+            driver_click((By.ID, "ctl00_MainContent_TabContainer1_tabSelected_Label3"))
             driver_send_keys((By.ID, "ctl00_MainContent_TabContainer1_tabSelected_tbSubID"),
                              class_id)
 
@@ -114,8 +114,14 @@ def auto_class(class_ids):
                 else:
                     logging.warning(
                         "課程" + class_id + ": 加選失敗, 請確認是否已加選或衝堂/超修, 也可能被其他機器人搶走了..")
-            else:
-                pass
+
+            # Reload the page so the next query starts from a clean state.
+            # After a query the page still holds the previous result grid and
+            # the previous id in the textbox. Typing the next id re-renders the
+            # grid while the old query button is being clicked
+            # (StaleElementReferenceException), or the click lands on the old
+            # button and queries the wrong course.
+            driver.get(driver.current_url)
 
 
 def start():
