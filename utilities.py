@@ -1,6 +1,8 @@
 """This python will handle some extra functions."""
+import json
 import logging
 import sys
+import urllib.request
 from os.path import exists
 
 import ddddocr
@@ -29,6 +31,11 @@ class_id: ''
 # Headless mode
 # If you want to run this script in headless mode, please set this to true.
 headless: false
+
+# Discord notification
+# Paste your Discord webhook URL here to get notified when a class is joined.
+# Leave it empty ('') to disable notifications.
+discord_webhook_url: ''
 """
                 )
     sys.exit()
@@ -56,7 +63,9 @@ def read_config():
                 'username': data['username'],
                 'password': data['password'],
                 'class_ids': class_ids,
-                'headless': data['headless']
+                'headless': data['headless'],
+                # Optional key, so old config files without it keep working.
+                'discord_webhook_url': str(data.get('discord_webhook_url') or '').strip()
             }
             return config
     except (KeyError, TypeError):
@@ -85,3 +94,28 @@ def get_ocr_answer(ocr_image_path):
         image = f.read()
     answer = ocr.classification(image)
     return answer
+
+
+def send_discord_notification(webhook_url, message):
+    """Send a message to a Discord webhook.
+
+    Never raises: a failed notification is only logged, so it can never
+    interrupt the auto class loop.
+
+    :param webhook_url: Discord webhook URL. Empty string disables sending.
+    :param message: Message content to send.
+    """
+    if not webhook_url:
+        return
+    payload = json.dumps({'content': message}).encode('utf-8')
+    try:
+        request = urllib.request.Request(
+            webhook_url, data=payload, method='POST',
+            headers={'Content-Type': 'application/json',
+                     'User-Agent': 'FCU-AutoClass'})
+        with urllib.request.urlopen(request, timeout=10):
+            pass
+    # URLError, HTTPError and socket timeouts are all OSError subclasses;
+    # ValueError is raised by Request() for a malformed URL.
+    except (OSError, ValueError) as error:
+        logging.warning("Discord 通知發送失敗: %s", error)

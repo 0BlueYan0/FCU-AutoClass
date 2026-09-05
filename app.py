@@ -61,6 +61,14 @@ def driver_get_text(locator):
     return WebDriverWait(driver, 10).until(ec.presence_of_element_located(locator)).text
 
 
+def notify(message):
+    """Send a Discord notification if a webhook URL is configured.
+
+    :param message: Message content to send.
+    """
+    utils.send_discord_notification(config.get("discord_webhook_url"), message)
+
+
 def login():
     """Login to FCU course system."""
     driver.get('https://course.fcu.edu.tw/')
@@ -111,6 +119,10 @@ def auto_class(class_ids):
                                     "//*[@id='ctl00_MainContent_TabContainer1_tabSelected_lblMsgBlock']/span")) == "加選成功":
                     logging.info("成功加選課程：" + class_id)
                     class_ids.remove(class_id)
+                    message = "✅ 成功加選課程：" + class_id
+                    if class_ids:
+                        message += "\n尚待加選：" + " ".join(class_ids)
+                    notify(message)
                 else:
                     logging.warning(
                         "課程" + class_id + ": 加選失敗, 請確認是否已加選或衝堂/超修, 也可能被其他機器人搶走了..")
@@ -156,6 +168,9 @@ def main():
         handlers=[logging.StreamHandler(),
                   logging.FileHandler(log_path, encoding='utf-8')])
     config = utils.read_config()
+    if config.get("discord_webhook_url"):
+        logging.info("Discord 通知已啟用")
+        notify("🤖 FCU-AutoClass 已啟動，將嘗試加選：" + " ".join(config.get("class_ids")))
     no_alert_times = 0
     while True:
         try:
@@ -167,6 +182,7 @@ def main():
         except RegistrationPhase as error:
             logging.error("目前選課系統為「登記」階段 (%s), 尚未開放即時加選, "
                           "程式停止執行, 請於加退選(即時選課)期間再使用!", error)
+            notify("⛔ 選課系統目前為「登記」階段，尚未開放即時加選，程式已停止。")
             quit_driver()
             sys.exit(2)
         except SeatQueryNoResponse as error:
@@ -175,6 +191,8 @@ def main():
                 logging.error("連續%s次查詢課程名額都沒有跳出名額視窗, "
                               "可能目前為「登記」階段或選課系統頁面已改版, 程式停止執行!",
                               no_alert_times)
+                notify("⛔ 連續 " + str(no_alert_times)
+                       + " 次查詢名額都沒有跳出視窗，程式已停止，請檢查選課系統。")
                 quit_driver()
                 sys.exit(2)
             logging.warning("查詢課程 %s 的名額時沒有跳出名額視窗 (第%s次), "
@@ -196,6 +214,7 @@ def main():
             continue
         quit_driver()
         logging.info("All classes joined.")
+        notify("🎉 所有課程皆已加選完成，程式結束。")
         sys.exit(0)
 
 

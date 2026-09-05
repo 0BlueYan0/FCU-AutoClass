@@ -18,7 +18,7 @@
 ### [ 2024/8/28 - 實測加選成功! ]
 這個程式可以協助你在逢甲大學的選課系統中，無時無刻追蹤你想要的課程，當有任何人退選時，自動幫你搶課加選。
 
-目前支援: 多課程加選、無視窗加選、出錯自動重啟
+目前支援: 多課程加選、無視窗加選、出錯自動重啟、Discord 通知
 
 ![image](./readme_imgs/demo01.gif)
 <img src="./readme_imgs/success.jpg" width="600" height="338" />
@@ -85,12 +85,20 @@ class_id: ''
 # Headless mode
 # If you want to run this script in headless mode, please set this to true.
 headless: false
+
+# Discord notification
+# Paste your Discord webhook URL here to get notified when a class is joined.
+# Leave it empty ('') to disable notifications.
+discord_webhook_url: ''
 ```
 
 * `username`: 請填入你的學號(帳號)
 * `password`: 請填入你的選課系統密碼
 * `class_id`: 請填入你想要加選的課程代碼，如果有多個課程請用空格隔開 (例如: `'0001 0002'`)
 * `headless`: 如果你想要讓程式在背景執行，請填入 `true`，否則請填入 `false`
+* `discord_webhook_url`: (選填) 填入 Discord webhook 網址後，加選成功、全部完成、程式因錯誤停止時都會傳訊息到該頻道，
+  程式啟動時也會先傳一則測試訊息讓你確認網址有效。留空 `''` 則不會發送任何通知。
+  取得方式：Discord 頻道 → 編輯頻道 → 整合 → Webhook → 新 Webhook → 複製 Webhook 網址
 
 ## 遇到任何問題嗎?
 
