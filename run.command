@@ -1,6 +1,9 @@
 #!/bin/bash
 cd "$(dirname "$0")" || exit 1
 
+# Force UTF-8 so the Chinese log lines render correctly under any locale.
+export PYTHONUTF8=1
+
 if [ -x ".venv/bin/python" ]; then
     ".venv/bin/python" app.py
 else

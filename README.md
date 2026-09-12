@@ -57,6 +57,9 @@ macOS 不提供打包好的執行檔，請從原始碼執行，Apple Silicon 與
 4. 打開 `config.yml` 並完成填寫裡面的資料 (詳細說明請看下面介紹)
 5. 再次開啟 `run.command` 後就完成了! (也可以直接在終端機執行 `.venv/bin/python app.py`)
 
+> 從舊版更新的話，記得重新執行 `.venv/bin/pip install -r requirements.txt`，
+> 新的 HTTP 引擎需要 `requests` 套件。
+
 ### macOS 安全性提示
 
 * 使用 `git clone` 取得的檔案可以直接執行；但如果是**從瀏覽器下載的 ZIP**，第一次打開 `run.command`
@@ -125,16 +128,24 @@ discord_webhook_url: ''
   所以 N 門課時每門課的實際間隔大約是 N × 伺服器回應時間 (約 0.2–0.5 秒)，仍遠快於舊版。
 * 第一次使用建議先用 `--dry-run` 跑一兩分鐘確認正常：只查名額並記錄，不會送出加選
   ```
+  # Windows
   .venv\Scripts\python app.py --dry-run
+  # macOS
+  .venv/bin/python app.py --dry-run
   ```
 * 選課系統頁面改版、或 log 出現「找不到課程列/按鈕」時，執行 `discover_form.py` (只發 3 個請求、不會加選)，
   檢查 `logs/discovery-*/` 的輸出 (內含學號姓名，分享前請先去除) 後再回報：
   ```
+  # Windows
   set PYTHONUTF8=1
   .venv\Scripts\python discover_form.py
+  # macOS
+  PYTHONUTF8=1 .venv/bin/python discover_form.py
   ```
 * Selenium 抓到的 chromedriver 版本和 Chrome 不合時，到 [Chrome for Testing](https://googlechromelabs.github.io/chrome-for-testing/)
-  下載對應版本的 chromedriver，把 `chromedriver.exe` 放到專案的 `drivers\` 資料夾即可；也可用環境變數 `CHROMEDRIVER` 指定路徑。
+  下載對應版本的 chromedriver 放到專案的 `drivers/` 資料夾 (Windows 檔名為 `chromedriver.exe`，macOS 為 `chromedriver`)；
+  也可用環境變數 `CHROMEDRIVER` 指定路徑。macOS 下載後若被 Gatekeeper 阻擋，執行 `xattr -d com.apple.quarantine drivers/chromedriver`
+  並用 `chmod +x drivers/chromedriver` 給予執行權限。
 * 想回到舊的瀏覽器逐課輪流方式，把 `config.yml` 的 `engine` 改成 `selenium`。
 
 ## 遇到任何問題嗎?
