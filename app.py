@@ -1,29 +1,25 @@
 """This python file will do the AutoClass job."""
+import argparse
 import logging
 import os
 import sys
+import threading
 import time
 
 from selenium import webdriver
 from selenium.common import TimeoutException
 from selenium.webdriver import Keys
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
 
+import http_engine
 import utilities as utils
+from http_engine import RegistrationPhase, SeatQueryNoResponse, SessionExpired
 
 config = None
 driver = None
-
-
-class RegistrationPhase(Exception):
-    """Raised when the course system is in the registration phase,
-    which means realtime add/drop is not open yet."""
-
-
-class SeatQueryNoResponse(Exception):
-    """Raised when clicking the seat-query button pops no alert."""
 
 
 def driver_send_keys(locator, key):
@@ -82,9 +78,8 @@ def login():
         WebDriverWait(driver, 1).until(ec.presence_of_element_located((By.ID, "ctl00_btnLogout")))
     except TimeoutException:
         logging.warning("Login Failed, relog now.")
-        login()
-    logging.info("Login Success. Start auto classing...")
-    auto_class(config.get("class_ids"))
+        return login()
+    logging.info("Login Success.")
 
 
 def auto_class(class_ids):
@@ -136,15 +131,52 @@ def auto_class(class_ids):
             driver.get(driver.current_url)
 
 
-def start():
-    """Run one attempt: launch the browser, login and start auto classing."""
-    global driver
+DRIVER_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "drivers")
+
+
+def find_chromedriver():
+    """Return an explicit chromedriver path, or None to let Selenium Manager pick one.
+
+    Order: the CHROMEDRIVER environment variable, then drivers/chromedriver.exe
+    next to app.py. Either bypasses a stale chromedriver on PATH (Selenium
+    Manager picks the PATH one first).
+    """
+    path = os.environ.get("CHROMEDRIVER")
+    if path:
+        if os.path.isfile(path):
+            return path
+        logging.warning("環境變數 CHROMEDRIVER 指向的檔案不存在: %s, 改用其他方式尋找", path)
+    for name in ("chromedriver.exe", "chromedriver"):
+        candidate = os.path.join(DRIVER_DIR, name)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def make_driver():
+    """Launch Chrome (see find_chromedriver for how the driver is chosen)."""
     options = webdriver.ChromeOptions()
     if config.get("headless"):
         options.add_argument('--headless')
-    driver = webdriver.Chrome(options=options)
-    driver.maximize_window()
+    path = find_chromedriver()
+    if path:
+        logging.info("使用 chromedriver: %s", path)
+    service = Service(executable_path=path) if path else None
+    chrome = webdriver.Chrome(service=service, options=options)
+    chrome.maximize_window()
+    return chrome
+
+
+def start():
+    """Run one attempt: launch the browser, login and start auto classing."""
+    global driver
+    driver = make_driver()
     login()
+    if config.get("engine") == "selenium":
+        logging.info("Start auto classing (selenium engine)...")
+        auto_class(config.get("class_ids"))
+    else:
+        http_engine.run(driver, config, notify, dry_run=config.get("dry_run", False))
 
 
 def quit_driver():
@@ -158,19 +190,33 @@ def quit_driver():
         driver = None
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="FCU-AutoClass 逢甲大學自動搶課機器人")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="只查詢名額並記錄, 不送出加選 (用來驗證 HTTP 引擎是否正常)")
+    return parser.parse_args()
+
+
 def main():
     global config
+    args = parse_args()
+    threading.current_thread().name = "main"
     os.makedirs('./logs', exist_ok=True)
     log_path = time.strftime('./logs/logs-%Y%m%d-%H%M%S.txt')
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s [%(levelname)s] %(message)s',
+        format='%(asctime)s [%(levelname)s] [%(threadName)s] %(message)s',
         handlers=[logging.StreamHandler(),
                   logging.FileHandler(log_path, encoding='utf-8')])
     config = utils.read_config()
+    config["dry_run"] = args.dry_run
+    logging.info("引擎: %s, 每門課查詢間隔: %.2f 秒%s", config.get("engine"),
+                 config.get("query_interval"),
+                 " [DRY-RUN 只查名額不加選]" if args.dry_run else "")
     if config.get("discord_webhook_url"):
         logging.info("Discord 通知已啟用")
-        notify("🤖 FCU-AutoClass 已啟動，將嘗試加選：" + " ".join(config.get("class_ids")))
+        notify(("[DRY-RUN] " if args.dry_run else "")
+               + "🤖 FCU-AutoClass 已啟動，將嘗試加選：" + " ".join(config.get("class_ids")))
     no_alert_times = 0
     while True:
         try:
@@ -197,6 +243,15 @@ def main():
                 sys.exit(2)
             logging.warning("查詢課程 %s 的名額時沒有跳出名額視窗 (第%s次), "
                             "5秒後自動重新啟動... (按 Ctrl+C 可離開)", error, no_alert_times)
+            quit_driver()
+            try:
+                time.sleep(5)
+            except KeyboardInterrupt:
+                sys.exit(130)
+            continue
+        except SessionExpired as error:
+            no_alert_times = 0
+            logging.warning("登入狀態已失效 (%s), 5秒後重新登入... (按 Ctrl+C 可離開)", error)
             quit_driver()
             try:
                 time.sleep(5)

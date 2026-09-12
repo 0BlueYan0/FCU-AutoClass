@@ -32,6 +32,18 @@ class_id: ''
 # If you want to run this script in headless mode, please set this to true.
 headless: false
 
+# Engine
+# http: after login, query/add every class in parallel with raw HTTP requests
+#       (one thread per class, fastest, recommended).
+# selenium: the old browser-driven loop, one class after another (fallback).
+engine: 'http'
+
+# Query interval (seconds) between two seat queries of the SAME class.
+# Lower = faster, but hits the school server harder and may get your
+# account/IP blocked. 0.5 is the recommended minimum; values below 0.3 are
+# raised to 0.3.
+query_interval: 0.5
+
 # Discord notification
 # Paste your Discord webhook URL here to get notified when a class is joined.
 # Leave it empty ('') to disable notifications.
@@ -64,8 +76,10 @@ def read_config():
                 'password': data['password'],
                 'class_ids': class_ids,
                 'headless': data['headless'],
-                # Optional key, so old config files without it keep working.
-                'discord_webhook_url': str(data.get('discord_webhook_url') or '').strip()
+                # Optional keys, so old config files without them keep working.
+                'discord_webhook_url': str(data.get('discord_webhook_url') or '').strip(),
+                'engine': get_engine(data.get('engine')),
+                'query_interval': get_query_interval(data.get('query_interval')),
             }
             return config
     except (KeyError, TypeError):
@@ -82,6 +96,44 @@ def get_class_ids(class_id):
     """
     class_ids = class_id.split(" ")
     return class_ids
+
+
+ENGINES = ('http', 'selenium')
+DEFAULT_QUERY_INTERVAL = 0.5
+MIN_QUERY_INTERVAL = 0.3
+
+
+def get_engine(value):
+    """Validate the optional ``engine`` key; defaults to ``http``.
+
+    :rtype: str
+    """
+    engine = str(value if value is not None else 'http').strip().lower() or 'http'
+    if engine not in ENGINES:
+        logging.warning("config.yml 的 engine 值 '%s' 無效, 改用 http (可選: %s)",
+                        value, ' / '.join(ENGINES))
+        engine = 'http'
+    return engine
+
+
+def get_query_interval(value):
+    """Validate the optional ``query_interval`` key (seconds, per class).
+
+    :rtype: float
+    """
+    if value is None or value == '':
+        return DEFAULT_QUERY_INTERVAL
+    try:
+        interval = float(value)
+    except (TypeError, ValueError):
+        logging.warning("config.yml 的 query_interval 值 '%s' 無效, 改用 %.1f 秒",
+                        value, DEFAULT_QUERY_INTERVAL)
+        return DEFAULT_QUERY_INTERVAL
+    if interval < MIN_QUERY_INTERVAL:
+        logging.warning("query_interval %.2f 秒太低, 為避免對選課系統造成過大負擔而被封鎖, "
+                        "已調整為 %.1f 秒", interval, MIN_QUERY_INTERVAL)
+        interval = MIN_QUERY_INTERVAL
+    return interval
 
 
 def get_ocr_answer(ocr_image_path):

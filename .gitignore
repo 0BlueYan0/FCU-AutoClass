@@ -16,3 +16,6 @@ build
 dist
 
 captcha.png
+
+# Local chromedriver used when the one on PATH does not match Chrome (see README)
+drivers
